@@ -2,9 +2,13 @@
 numpy>=1.24
 pillow>=10.0
 
-# Application Windows (.exe) : fenetre de l'editeur et construction
+# Application de bureau (Windows .exe, Linux .AppImage) : fenetre de l'editeur et construction
 pywebview>=5.0
 pyinstaller>=6.0
+# Linux : moteur de la fenetre pywebview (ou PyGObject + WebKit2GTK du systeme)
+# qtpy
+# PyQt6
+# PyQt6-WebEngine
 
 # Seulement pour regenerer schema/ctr_meta.json depuis l'eboot.bin du jeu (extract_meta.py)
 # capstone>=5.0

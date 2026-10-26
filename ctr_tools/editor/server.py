@@ -31,6 +31,7 @@ import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -90,8 +91,27 @@ def collision_file(track):
     return f'models/maps/Octane/{track}/StaticCollision_{track}.hkx'
 
 
+_dir_names = {}                # dossier -> (date, {nom minuscule: nom}) : casse des fichiers deja ecrits
+
+
+def ci_path(folder, name):
+    """folder/name sans tenir compte de la casse, comme sous Windows : sous Linux, le fichier existant qui a ce nom
+    a la casse pres (les noms logiques arrivent en minuscules du manifeste ou avec la casse de l'archive)."""
+    p = os.path.join(folder, name)
+    if os.name == 'nt' or os.path.exists(p):
+        return p
+    try:
+        stamp = os.stat(folder).st_mtime_ns
+    except OSError:
+        return p
+    hit = _dir_names.get(folder)
+    if not hit or hit[0] != stamp:
+        hit = _dir_names[folder] = (stamp, {n.lower(): n for n in os.listdir(folder)})
+    return os.path.join(folder, hit[1].get(name.lower(), name))
+
+
 def saved_path(logical):
-    return os.path.join(OUT_DIR, os.path.basename(logical))
+    return ci_path(OUT_DIR, os.path.basename(logical))
 
 
 def list_tracks():
@@ -1693,7 +1713,7 @@ CUSTOM_DIR = 'Levels/Octane/Custom'
 
 
 def custom_model_path(logical):
-    return os.path.join(OUT_DIR, 'models', os.path.basename(logical))
+    return ci_path(os.path.join(OUT_DIR, 'models'), os.path.basename(logical))
 
 
 def custom_models(track):
@@ -1784,7 +1804,7 @@ def custom_textures(track):
 
 def custom_file_path(logical):
     """Fichiers de texture / materiau importes : out/editor/textures/<nom de fichier>."""
-    return os.path.join(OUT_DIR, 'textures', os.path.basename(logical))
+    return ci_path(os.path.join(OUT_DIR, 'textures'), os.path.basename(logical))
 
 
 def custom_material_entries(track):
@@ -2294,18 +2314,30 @@ def _folder(req):
 
 
 def _find_file(folder, name):
-    """Fichier du dossier (nom insensible a la casse ; chemin relatif ou seulement le nom de fichier)."""
+    """Fichier du dossier (chemin relatif ou seulement le nom de fichier ; chaque element du chemin insensible a la
+    casse, aussi sous Linux : « Textures\\Herbe.PNG » d'un .mtl Windows trouve textures/herbe.png)."""
     if not name:
         return None
     name = name.replace('\\', '/')
     for cand in (name, os.path.basename(name)):
-        p = os.path.join(folder, cand)
-        if os.path.isfile(p):
-            return p
-        low = cand.lower()
-        for f in os.listdir(os.path.dirname(p) if os.path.isdir(os.path.dirname(p)) else folder):
-            if f.lower() == os.path.basename(low):
-                return os.path.join(os.path.dirname(p) if os.path.isdir(os.path.dirname(p)) else folder, f)
+        if os.path.isabs(cand):
+            if os.path.isfile(cand):
+                return cand
+            continue
+        p = folder
+        for part in cand.split('/'):
+            if part in ('', '.'):
+                continue
+            q = os.path.join(p, part)
+            if not os.path.exists(q):
+                try:
+                    q = os.path.join(p, next(f for f in os.listdir(p) if f.lower() == part.lower()))
+                except (OSError, StopIteration):
+                    break
+            p = q
+        else:
+            if os.path.isfile(p):
+                return p
     return None
 
 
@@ -4401,18 +4433,58 @@ def set_archives(path):
     return path
 
 
-def ask_folder(title, initial=None):
-    """Fenetre Windows de choix de dossier, ouverte par le serveur (meme PC) au premier plan."""
+FOLDER_DIALOG = None           # (titre, dossier initial) -> chemin ou None : fenetre de l'application (app.py, Linux)
+
+
+def _ask_folder_tk(title, initial):
     import tkinter as tk
     from tkinter import filedialog
     root = tk.Tk()
     root.withdraw()
     root.attributes('-topmost', True)
     try:
-        path = filedialog.askdirectory(parent=root, mustexist=True, title=title,
-                                       initialdir=initial if initial and os.path.isdir(initial) else None)
+        return filedialog.askdirectory(parent=root, mustexist=True, title=title, initialdir=initial)
     finally:
         root.destroy()
+
+
+def _ask_folder_linux(title, initial):
+    """zenity (GNOME...) ou kdialog (KDE). None si aucun des deux ; '' si annule."""
+    kde = 'KDE' in os.environ.get('XDG_CURRENT_DESKTOP', '').upper()
+    tools = ('kdialog', 'zenity') if kde else ('zenity', 'kdialog')
+    tool = next((t for t in tools if shutil.which(t)), None)
+    if not tool:
+        return None
+    if tool == 'zenity':
+        cmd = ['zenity', '--file-selection', '--directory', '--title', title]
+        cmd += ['--filename', os.path.join(initial, '')] if initial else []
+    else:
+        cmd = ['kdialog', '--title', title, '--getexistingdirectory', initial or os.path.expanduser('~')]
+    env = dict(os.environ)
+    if getattr(sys, 'frozen', False):                 # PyInstaller : bibliotheques du systeme pour l'outil, pas les notres
+        orig = env.pop('LD_LIBRARY_PATH_ORIG', None)
+        env.pop('LD_LIBRARY_PATH', None)
+        if orig:
+            env['LD_LIBRARY_PATH'] = orig
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    return r.stdout.strip() if r.returncode == 0 else ''
+
+
+def ask_folder(title, initial=None):
+    """Fenetre de choix de dossier, ouverte par le serveur (meme PC) au premier plan : celle de l'application si
+    elle en fournit une, sinon zenity / kdialog sous Linux (tkinter souvent absent), sinon tkinter."""
+    initial = initial if initial and os.path.isdir(initial) else None
+    path = None
+    if FOLDER_DIALOG:
+        path = FOLDER_DIALOG(title, initial)
+    elif sys.platform.startswith('linux'):
+        path = _ask_folder_linux(title, initial)
+    if path is None and not FOLDER_DIALOG:
+        try:
+            path = _ask_folder_tk(title, initial)
+        except ImportError:
+            raise RuntimeError('aucune fenêtre de choix de dossier disponible : installer zenity (ou python3-tk), '
+                               'ou lancer le serveur avec --archives "<dossier archives du jeu>"')
     return os.path.normpath(path) if path else None
 
 

@@ -68,8 +68,8 @@ python ctr_tools/editor/server.py
 Dossier « archives » du jeu : `--archives "<dossier>"`, sinon celui mémorisé dans `ctr_editor_config.json`, sinon
 la page le demande à l'ouverture (aucun chemin écrit dans le code). Ce fichier garde aussi la langue (anglais par
 défaut ; `window.CTR_SETTINGS` injecté dans la page, `POST /api/settings`), car le stockage du navigateur dépend du
-port. « Importer un dossier » : bouton « 📁 Parcourir… » (`POST /api/pick_folder`, fenêtre Windows ouverte par le
-serveur). « Créer le parcours » : « 🖱 Choisir les routes dans le Décor » (sélection dans la vue 3D, puis retour au
+port. « Importer un dossier » : bouton « 📁 Parcourir… » (`POST /api/pick_folder`, fenêtre de choix ouverte par le
+serveur : celle de l'application sous Linux, sinon `zenity` / `kdialog`, sinon tkinter). « Créer le parcours » : « 🖱 Choisir les routes dans le Décor » (sélection dans la vue 3D, puis retour au
 dialogue avec ces morceaux cochés).
 Ouvrir http://localhost:8765 : vue 3D (collision + splines + transitions), sélection/déplacement/ajout/suppression
 de points, **duplication / suppression de splines IA** (nouvelle spline = copie décalée de 300 po, ajoutée aux
@@ -99,7 +99,7 @@ transparent), sinon un drapeau à damier dessiné (dépôt GitHub sans image du 
 * Archives du jeu : celles mémorisées dans `ctr_editor_config.json` à côté de l'exe, sinon demandées par la page à
   l'ouverture. Dans l'éditeur (application **et**
   navigateur) : ligne « 🎮 Dossier du jeu » en tête du guide et menu « ⋯ › 📁 Dossier des archives du jeu… ».
-  `POST /api/archives` (sans `path` : fenêtre Windows ouverte par le serveur) vérifie le dossier, oublie tous les
+  `POST /api/archives` (sans `path` : fenêtre de choix ouverte par le serveur) vérifie le dossier, oublie tous les
   caches (`clear_caches`), mémorise le choix et la page se recharge. Le serveur seul relit
   `ctr_editor_config.json` à la racine du projet quand `--archives` n'est pas donné.
 * Hors ligne : three.js 0.160.0 est servi localement (`editor/vendor/three`, route `/vendor/`).
@@ -111,6 +111,26 @@ transparent), sinon un drapeau à damier dessiné (dépôt GitHub sans image du 
   (environnement `.build_venv` : pyinstaller, pywebview, numpy, pillow ; `PIP_USE_FEATURE=truststore` si pip
   échoue sur les certificats). Piège : pywebview expose à la page tout attribut public d'un objet `js_api`
   (une fenêtre en attribut public = parcours récursif sans fin, fenêtre figée) ; l'application n'en utilise plus.
+
+### Application Linux (`CTR/appimage/CTR_Track_Editor-<arch>.AppImage`)
+
+Même lanceur (`editor/app.py`), construit par `build_appimage.py` (sous Linux) : dossier PyInstaller dans une AppImage
+(un seul fichier). Fenêtre : pywebview + Qt WebEngine (PyQt6) embarqué ; les autres moteurs de pywebview et les autres
+liaisons Qt sont exclus. Bac à sable Chromium désactivé (`QTWEBENGINE_DISABLE_SANDBOX`, bloqué par AppArmor sur
+Ubuntu 24.04) : la page affichée est celle du serveur local.
+* Données et `ctr_editor_config.json` : à côté du fichier `.AppImage` (l'application elle-même est montée en lecture
+  seule), ou dans un dossier parent qui a déjà des sauvegardes ; dossier non modifiable : `~/.local/share/ctr-track-editor`.
+* Fichiers enregistrés (`out/editor`) et fichiers des maps importées : noms cherchés sans tenir compte de la casse
+  (`server.ci_path`, `_find_file`), comme sous Windows (le manifeste donne des noms en minuscules, les `.mtl` exportés
+  sous Windows des chemins `Textures\Herbe.PNG`).
+* Construire :
+  ```bash
+  python3 -m venv .build_venv
+  .build_venv/bin/python -m pip install pyinstaller pywebview qtpy PyQt6 PyQt6-WebEngine numpy pillow
+  .build_venv/bin/python ctr_tools/editor/build_appimage.py
+  ```
+  `appimagetool` : PATH, `$APPIMAGETOOL`, sinon téléchargé dans `.build`. La glibc de la machine de construction est
+  la plus ancienne acceptée : construire sur une distribution ancienne (Ubuntu 22.04).
 
 ### Téléporteurs (mécanisme de Spyro Circuit)
 

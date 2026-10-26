@@ -46,15 +46,16 @@ Import your own map (OBJ / COLLADA), turn it into a playable race in a few click
 
 ## Requirements
 - Your **own legally dumped copy** of CTR Nitro-Fueled for PS4 (CUSA13795, update 1.21) running on shadPS4 or CTR-NitroFueled-PC. No game file is included in this repository.
-- Windows 10/11. For the source version: Python 3.11+.
+- Windows 10/11 or Linux (x86_64 / aarch64). For the source version: Python 3.11+.
 
-## Quick start (Windows app)
-1. Run `CTR Track Editor.exe`.
+## Quick start (desktop app)
+1. Run `CTR Track Editor.exe` (Windows) or `CTR_Track_Editor-x86_64.AppImage` (Linux: `chmod +x` it first).
 2. On first launch, choose the game's **`archives`** folder from 1.21 Update (it contains `update.pak` and the track archives such as `t111_crash_cove.pak`). The choice is remembered.
 3. Follow the 6-step guide on the left: *Remove the old track → Import your map → Create the route → Place objects → Check → Install*.
 4. Close shadPS4 or CTR-NitroFueled-PC before installing, then start a race on the track you replaced.
 
-Your saves are stored in `out/editor` next to the executable.
+Your saves are stored in `out/editor` next to the executable / the AppImage (Linux: in
+`~/.local/share/ctr-track-editor` if that folder is read-only).
 
 ## Run from source
 ```bash
@@ -62,13 +63,26 @@ pip install -r requirements.txt
 python ctr_tools/editor/server.py            # then open http://localhost:8765
 python ctr_tools/editor/server.py --archives "<game archives folder>" --port 8765
 ```
-Desktop window (pywebview): `python ctr_tools/editor/app.py`.
+Desktop window (pywebview): `python ctr_tools/editor/app.py`. On Linux pywebview also needs a web engine:
+`pip install qtpy PyQt6 PyQt6-WebEngine` (or the system PyGObject + WebKit2GTK packages). The folder picker uses
+the app window, otherwise `zenity` / `kdialog`, otherwise tkinter (`python3-tk`).
 
 ### Build the Windows app
 ```bash
 python ctr_tools/editor/build_exe.py [output folder]
 ```
 PyInstaller one-folder build: `CTR Track Editor.exe` + `_internal/` (Python, libraries, editor page, three.js, IGZ schema). Works offline.
+
+### Build the Linux app (AppImage)
+```bash
+python3 -m venv .build_venv
+.build_venv/bin/python -m pip install pyinstaller pywebview qtpy PyQt6 PyQt6-WebEngine numpy pillow
+.build_venv/bin/python ctr_tools/editor/build_appimage.py [output folder]     # default: CTR/appimage
+```
+Single-file `CTR_Track_Editor-<arch>.AppImage` (Python, Qt WebEngine window, editor page, three.js, IGZ schema).
+Works offline. `appimagetool` is taken from the `PATH` (or `$APPIMAGETOOL`), otherwise downloaded once into `.build/`.
+The AppImage runs on distributions whose glibc is at least the build machine's: build on the oldest one you
+target (e.g. Ubuntu 22.04).
 
 ### Tests
 Most tests take the game's `archives` folder (they read real game files, nothing is modified); a few take a
@@ -82,7 +96,7 @@ python ctr_tools/test_roundtrip.py extracted          # every .igz re-written by
 ## Project layout
 | Path | Content |
 |---|---|
-| `ctr_tools/editor/` | `server.py` (local HTTP API), `index.html` (three.js editor), `i18n.js` (translations), `app.py` (Windows app), `build_exe.py` |
+| `ctr_tools/editor/` | `server.py` (local HTTP API), `index.html` (three.js editor), `i18n.js` (translations), `app.py` (desktop app), `build_exe.py` (Windows), `build_appimage.py` (Linux) |
 | `ctr_tools/igz.py` | Reader / writer for Alchemy `.igz` files (fixups, handles, deep clone, cross-file entity import, compaction) |
 | `ctr_tools/pak_tool.py` | `.pak` archives (IGA v13, LZMA): extract, patch in place, backups |
 | `ctr_tools/havok*.py`, `cms_codec.py`, `collision*.py` | Havok collision: compressed-mesh decoder / encoder, compound instances |
@@ -113,6 +127,6 @@ Importe ta propre map (OBJ / COLLADA), transforme-la en course jouable en quelqu
 - **Sécurité** : vérification avant installation et **corrections en un clic**, annuler / rétablir, installation réversible (sauvegarde des archives), plusieurs pistes installées en même temps.
 - Interface en **français, anglais, espagnol, italien et allemand**.
 
-**Démarrage** : lance `CTR Track Editor.exe`, choisis le dossier `archives` du jeu, puis suis le guide en 6 étapes. Depuis les sources : `pip install -r requirements.txt` puis `python ctr_tools/editor/server.py` (http://localhost:8765).
+**Démarrage** : lance `CTR Track Editor.exe` (Windows) ou `CTR_Track_Editor-x86_64.AppImage` (Linux), choisis le dossier `archives` du jeu, puis suis le guide en 6 étapes. Depuis les sources : `pip install -r requirements.txt` puis `python ctr_tools/editor/server.py` (http://localhost:8765).
 
 Outil de fan, non commercial, sans lien avec Activision, Beenox ou Sony. Aucun fichier du jeu n'est inclus : il faut ta propre copie du jeu.

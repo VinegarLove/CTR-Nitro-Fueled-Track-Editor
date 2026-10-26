@@ -484,7 +484,7 @@
     "📁 Choisir le dossier…": ["📁 Choose the folder…", "📁 Elegir la carpeta…", "📁 Scegli la cartella…", "📁 Ordner auswählen…"],
     "Choisis le dossier dans la fenêtre ouverte…": ["Choose the folder in the window that opened…", "Elige la carpeta en la ventana abierta…", "Scegli la cartella nella finestra aperta…", "Wähle den Ordner im geöffneten Fenster…"],
     "📁 Parcourir…": ["📁 Browse…", "📁 Examinar…", "📁 Sfoglia…", "📁 Durchsuchen…"],
-    "Choisir le dossier dans une fenêtre Windows": ["Choose the folder in a Windows window", "Elegir la carpeta en una ventana de Windows", "Scegli la cartella in una finestra di Windows", "Ordner in einem Windows-Fenster auswählen"],
+    "Choisir le dossier dans une fenêtre du système": ["Choose the folder in a system dialog", "Elegir la carpeta en una ventana del sistema", "Scegli la cartella in una finestra di sistema", "Ordner in einem Systemdialog auswählen"],
     "🖱 Choisir les routes dans le Décor (vue 3D)": ["🖱 Pick the roads in Decor (3D view)", "🖱 Elegir las carreteras en Decorado (vista 3D)", "🖱 Scegli le strade in Scenario (vista 3D)", "🖱 Straßen in Deko auswählen (3D-Ansicht)"],
     "Passe en mode Décor : clique les morceaux de route dans la vue 3D (Maj+clic pour en ajouter), puis reviens ici":
       ["Switches to Decor mode: click the road pieces in the 3D view (Shift+click to add more), then come back here",
