@@ -75,7 +75,7 @@ PyInstaller one-folder build: `CTR Track Editor.exe` + `_internal/` (Python, lib
 
 ### Build the Linux app (AppImage)
 ```bash
-python3 -m venv .build_venv
+python -m venv .build_venv
 .build_venv/bin/python -m pip install pyinstaller pywebview qtpy PyQt6 PyQt6-WebEngine numpy pillow
 .build_venv/bin/python ctr_tools/editor/build_appimage.py [output folder]     # default: CTR/appimage
 ```
