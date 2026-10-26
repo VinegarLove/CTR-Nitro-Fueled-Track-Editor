@@ -98,6 +98,8 @@ def ci_path(folder, name):
     """folder/name sans tenir compte de la casse, comme sous Windows : sous Linux, le fichier existant qui a ce nom
     a la casse pres (les noms logiques arrivent en minuscules du manifeste ou avec la casse de l'archive)."""
     p = os.path.join(folder, name)
+
+    # Windows deja insensible ; nom exact present : rien a chercher
     if os.name == 'nt' or os.path.exists(p):
         return p
     try:
@@ -105,6 +107,8 @@ def ci_path(folder, name):
     except OSError:
         return p
     hit = _dir_names.get(folder)
+
+    # liste relue seulement si le dossier a change (ajout / retrait)
     if not hit or hit[0] != stamp:
         hit = _dir_names[folder] = (stamp, {n.lower(): n for n in os.listdir(folder)})
     return os.path.join(folder, hit[1].get(name.lower(), name))
@@ -2319,12 +2323,18 @@ def _find_file(folder, name):
     if not name:
         return None
     name = name.replace('\\', '/')
+
+    # chemin donne, sinon le nom seul dans le dossier
     for cand in (name, os.path.basename(name)):
+        
+        # chemin absolu : tel quel (sinon le nom seul, essai suivant)
         if os.path.isabs(cand):
             if os.path.isfile(cand):
                 return cand
             continue
         p = folder
+
+        # element par element : nom exact, sinon le meme a la casse pres
         for part in cand.split('/'):
             if part in ('', '.'):
                 continue
@@ -2336,6 +2346,7 @@ def _find_file(folder, name):
                     break
             p = q
         else:
+            # tout le chemin trouve
             if os.path.isfile(p):
                 return p
     return None
@@ -4466,7 +4477,11 @@ def _ask_folder_linux(title, initial):
         env.pop('LD_LIBRARY_PATH', None)
         if orig:
             env['LD_LIBRARY_PATH'] = orig
+
+    # bloque jusqu'au choix
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+    # chemin sur stdout ; code 1 = annule
     return r.stdout.strip() if r.returncode == 0 else ''
 
 
@@ -4474,12 +4489,17 @@ def ask_folder(title, initial=None):
     """Fenetre de choix de dossier, ouverte par le serveur (meme PC) au premier plan : celle de l'application si
     elle en fournit une, sinon zenity / kdialog sous Linux (tkinter souvent absent), sinon tkinter."""
     initial = initial if initial and os.path.isdir(initial) else None
+
+    # None = pas de fenetre disponible, '' = annule
     path = None
     if FOLDER_DIALOG:
+        
         path = FOLDER_DIALOG(title, initial)
     elif sys.platform.startswith('linux'):
+        # 2. zenity / kdialog
         path = _ask_folder_linux(title, initial)
     if path is None and not FOLDER_DIALOG:
+        # 3. tkinter
         try:
             path = _ask_folder_tk(title, initial)
         except ImportError:

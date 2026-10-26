@@ -83,15 +83,19 @@ def main():
     if len(sys.argv) > 1:
         APP_DIR = os.path.abspath(sys.argv[1])
     py = VENV_PY if os.path.exists(VENV_PY) else sys.executable
-    # Qt WebEngine doit se charger ici : sinon les hooks PyInstaller sautent les modules Qt (plugins, QtWebEngineProcess)
-    # sans erreur et l'AppImage n'ouvre pas de fenetre
+
+    # 1. verification : Qt WebEngine doit se charger ici, sinon les hooks PyInstaller sautent les modules Qt
+    # (plugins, QtWebEngineProcess) sans erreur et l'AppImage n'ouvre pas de fenetre
     r = subprocess.run([py, '-c', 'from PyQt6 import QtWebEngineWidgets'], capture_output=True, text=True)
     if r.returncode:
         sys.exit(f'{r.stderr.strip()}\n\nPyQt6 / Qt WebEngine ne se charge pas avec {py} : installer les paquets de la '
                  f'docstring (pip) et les bibliotheques du systeme qui manquent, ex. Ubuntu / Debian :\n  {APT_HINT}')
+    # 2. icone PNG (meme dessin que l'.ico de Windows)
     os.makedirs(BUILD, exist_ok=True)
     icon = os.path.join(BUILD, SLUG + '.png')
     make_icon(icon)
+
+    # 3. PyInstaller : dossier executable (Python + bibliotheques + fichiers de l'editeur), moteur Qt seulement
     dist = os.path.join(BUILD, 'dist-linux')
     sep = os.pathsep
     cmd = [py, '-m', 'PyInstaller', '--noconfirm', '--clean', '--onedir', '--name', SLUG,
@@ -108,7 +112,7 @@ def main():
     print(' '.join(f'"{c}"' if ' ' in c else c for c in cmd), flush=True)
     subprocess.check_call(cmd, cwd=ROOT)
 
-    # AppDir : AppRun -> usr/lib/<slug>/<slug> (dossier PyInstaller), .desktop et icone a la racine
+    # 4. AppDir : AppRun -> usr/lib/<slug>/<slug> (dossier PyInstaller), .desktop et icone a la racine
     appdir = os.path.join(BUILD, f'{SLUG}.AppDir')
     if os.path.isdir(appdir):                          # genere par ce script
         shutil.rmtree(appdir)
@@ -121,12 +125,17 @@ def main():
     shutil.copy2(icon, os.path.join(appdir, '.DirIcon'))
     icons = os.path.join(appdir, 'usr', 'share', 'icons', 'hicolor', '256x256', 'apps')
     os.makedirs(icons)
+
+    # icone du menu (integration au bureau)
     shutil.copy2(icon, os.path.join(icons, SLUG + '.png'))
 
+    # 5. appimagetool : AppDir -> un seul fichier .AppImage (image squashfs + lanceur)
     os.makedirs(APP_DIR, exist_ok=True)
     out = os.path.join(APP_DIR, f'{NAME.replace(" ", "_")}-{ARCH}.AppImage')
     env = dict(os.environ, ARCH=ARCH)
-    if not os.path.exists('/dev/fuse'):                # conteneur : appimagetool est lui-meme une AppImage
+
+    # conteneur : appimagetool est lui-meme une AppImage
+    if not os.path.exists('/dev/fuse'):
         env['APPIMAGE_EXTRACT_AND_RUN'] = '1'
     tool = appimagetool()
     print(f'{tool} {appdir} {out}', flush=True)

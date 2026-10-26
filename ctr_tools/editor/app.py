@@ -29,11 +29,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def _app_dir():
     """Dossier de l'application. AppImage : l'exe est dans une image montee en lecture seule (/tmp/.mount_...), on
     prend le dossier du fichier .AppImage ; Linux, dossier non modifiable (/opt...) : ~/.local/share."""
+
+    # chemin du fichier .AppImage, donne par son lanceur
     if os.environ.get('APPIMAGE'):
         d = os.path.dirname(os.path.abspath(os.environ['APPIMAGE']))
     else:
+         # exe PyInstaller, sinon racine du projet (sources)
         d = os.path.dirname(sys.executable) if FROZEN else os.path.dirname(os.path.dirname(HERE))
     if os.name != 'nt' and not os.access(d, os.W_OK):
+        # config et sauvegardes impossibles a cote : dossier utilisateur
         d = os.path.join(os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share'), 'ctr-track-editor')
         os.makedirs(d, exist_ok=True)
     return d
@@ -81,9 +85,15 @@ def free_port(preferred=8765):
 
 
 def _webview_folder(window, initial):
+    """
+    Choix de dossier dans la fenetre de l'editeur (appele depuis un fil du serveur : pywebview le transmet a la
+    boucle de la fenetre et attend la reponse).
+    """
     import webview
-    kind = getattr(getattr(webview, 'FileDialog', None), 'FOLDER', None) or webview.FOLDER_DIALOG
+    kind = getattr(getattr(webview, 'FileDialog', None), 'FOLDER', None) or webview.FOLDER_DIALOG  # 6.x / 5.x
     r = window.create_file_dialog(kind, directory=initial or '')
+
+    # liste des dossiers choisis ; None si annule
     return r[0] if r else ''
 
 
